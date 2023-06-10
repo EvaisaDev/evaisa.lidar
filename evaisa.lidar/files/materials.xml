@@ -1,0 +1,22 @@
+<Materials>
+    <CellDataChild
+        _parent="rock_static"
+        _inherit_reactions="0"
+        tags=""
+        name="mortal_lidar" 
+        ui_name=""
+        wang_color="ffabeba4"
+        hp="200000"
+        durability="120000"
+        audio_physics_material_event="rock"
+        audio_physics_material_wall="rock"
+        audio_physics_material_solid="rock"
+        platform_type="1"
+        >
+        <Graphics
+            texture_file=""
+            color="ffffffff"
+        >
+        </Graphics>
+    </CellDataChild>
+</Materials>

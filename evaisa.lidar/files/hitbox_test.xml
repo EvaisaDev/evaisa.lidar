@@ -1,0 +1,14 @@
+<Entity tags="mortal">
+    <HitboxComponent
+        aabb_min_x = "-10"
+        aabb_min_y = "-10"
+        aabb_max_x = "10"
+        aabb_max_y = "10"
+    ></HitboxComponent>
+
+    <SpriteComponent
+        image_file = "mods/evaisa.lidar/files/hitbox_test.png"
+        offset_x = "10"
+        offset_y = "10"
+    ></SpriteComponent>
+</Entity>
