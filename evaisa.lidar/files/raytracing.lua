@@ -101,6 +101,7 @@ if(players[1])then
 			local hitboxes = EntityGetComponentIncludingDisabled(v, "HitboxComponent") or {}
 			if(#hitboxes > 0)then
 				local x, y = EntityGetTransform(v)
+
 				--[[
 					float                   aabb_min_x                                                      -5 [-15, 15]                    ""
 					float                   aabb_max_x                                                      5 [-15, 15]                     ""
@@ -142,13 +143,17 @@ if(players[1])then
 						x = x,
 						y = y,
 						radius = entity_bounds_radius,
+						aabb_min_x = aabb_min_x,
+						aabb_max_x = aabb_max_x,
+						aabb_min_y = aabb_min_y,
+						aabb_max_y = aabb_max_y
 					})
 				end
 			end
 		end
 	end
 
-	local raycast = function(x, y, far_x, far_y)
+	local raycast = function(x, y, far_x, far_y, no_convert)
 		local was_entity = false
 
 		local dx = far_x - x
@@ -171,13 +176,15 @@ if(players[1])then
 
 			for _, entity in ipairs(entity_list)do
 				
+				
+
 				local dx = step_x - entity.x
 				local dy = step_y - entity.y
 	
 				local distance = math.sqrt(dx * dx + dy * dy)
 
 				if(distance < entity.radius)then
-					--[[
+					--print("hit_entity")
 					-- check if point is within aabb 
 					local aabb_min_x = entity.aabb_min_x + entity.x
 					local aabb_max_x = entity.aabb_max_x + entity.x
@@ -185,23 +192,25 @@ if(players[1])then
 					local aabb_max_y = entity.aabb_max_y + entity.y
 
 					if(step_x >= aabb_min_x and step_x <= aabb_max_x and step_y >= aabb_min_y and step_y <= aabb_max_y)then
-						hit = true
-						hit_x = step_x
-						hit_y = step_y
 						was_entity = true
+						entity_x = entity.x
+						entity_y = entity.y
+						entity_radius = entity.radius
+						local physics_comp = EntityGetFirstComponentIncludingDisabled(entity.id, "PhysicsBodyComponent")
+						local physics2_comp = EntityGetFirstComponentIncludingDisabled(entity.id, "PhysicsBody2Component")
+	
+						if(physics_comp or physics2_comp)then
+							no_convert = true
+						end
+
+						if(not no_convert)then
+							EntityConvertToMaterial( entity.id, "mortal_lidar" )
+						end
 						goto end_loop
 					end
-					]]
 
-					entity_x = entity.x
-					entity_y = entity.y
-					entity_radius = entity.radius
+					
 
-					EntityConvertToMaterial( entity.id, "mortal_lidar" )
-
-					goto end_loop
-
-					was_entity = true
 				end
 			end
 		end
@@ -209,11 +218,20 @@ if(players[1])then
 		::end_loop::
 		
 
-		local hit, hit_x, hit_y = RaytracePlatforms( x, y, far_x, far_y )
+		local hit, hit_x, hit_y = RaytraceSurfaces( x, y, far_x, far_y )
 
-		--[[if(was_entity)then
-			ConvertMaterialOnAreaInstantly( entity_x, entity_y, entity_radius * 2, entity_radius * 2, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
-		end]]
+		if(was_entity and not no_convert)then
+			local material_converter_entity = EntityCreateNew()
+			EntityAddComponent2(material_converter_entity, "MagicConvertMaterialComponent", {
+				radius = entity_radius,
+				from_material = CellFactory_GetType("mortal_lidar"),
+				to_material = CellFactory_GetType("air"),
+				kill_when_finished = true,
+				steps_per_frame = 512,
+			})
+			EntitySetTransform(material_converter_entity, entity_x, entity_y)
+			--ConvertMaterialOnAreaInstantly( entity_x - entity_radius, entity_y - entity_radius, entity_radius * 2, entity_radius * 2, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
+		end
 		return hit, hit_x, hit_y, was_entity
 	end
 
@@ -336,9 +354,9 @@ if(players[1])then
 
 				
 				if(value ~= nil)then
-					ConvertMaterialOnAreaInstantly( x, y, 128, 128, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
+					--ConvertMaterialOnAreaInstantly( x, y, 128, 128, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
 
-					local check_hit, check_x, check_y = raycast( x, y, x + 0.4, y + 0.4 )
+					local check_hit, check_x, check_y = raycast( x, y, x + 0.4, y + 0.4, true )
 	
 					if(check_hit)then
 
@@ -372,7 +390,7 @@ if(players[1])then
 					
 
 					if(was_new and not value == 1)then
-						local check_hit, check_x, check_y = raycast( x, y, x + 0.4, y + 0.4 )
+						local check_hit, check_x, check_y = raycast( x, y, x + 0.4, y + 0.4, true )
 	
 						if(check_hit)then
 							--[[

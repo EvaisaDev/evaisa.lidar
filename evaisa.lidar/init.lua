@@ -7,7 +7,7 @@ ModMaterialsFileAdd( "mods/evaisa.lidar/files/materials.xml" )
 
 function OnMagicNumbersAndWorldSeedInitialized()
 
-	--[[
+	
 	local biomes_content = ModTextFileGetContent("data/biome/_biomes_all.xml")
 
 	local biomes_parsed = nxml.parse(biomes_content)
@@ -28,7 +28,7 @@ function OnMagicNumbersAndWorldSeedInitialized()
 			end
 		end
 	end
-	]]
+	
 	
 
 end
