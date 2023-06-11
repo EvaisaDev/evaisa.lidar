@@ -11,11 +11,11 @@
         audio_physics_material_event="rock"
         audio_physics_material_wall="rock"
         audio_physics_material_solid="rock"
-        platform_type="1"
+        platform_type="0"
         >
         <Graphics
             texture_file=""
-            color="ffffffff"
+            color="00ffffff"
         >
         </Graphics>
     </CellDataChild>

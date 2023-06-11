@@ -84,8 +84,16 @@ if(players[1])then
 	local controls = EntityGetFirstComponentIncludingDisabled(player, "ControlsComponent")
 
 	local aim_x, aim_y = ComponentGetValue2(controls, "mAimingVectorNormalized")
+	local fire_frame = ComponentGetValue2(controls, "mButtonFrameFire")
 	local fire_2_down = ComponentGetValue2(controls, "mButtonDownFire2")
 	local fire_2_frame = ComponentGetValue2(controls, "mButtonFrameFire2")
+	local throw_down = ComponentGetValue2(controls, "mButtonDownThrow")
+	local throw_frame = ComponentGetValue2(controls, "mButtonFrameThrow")
+
+	local is_secondary_bind = fire_frame ~= fire_2_frame
+
+	local scan_down = is_secondary_bind and fire_2_down or throw_down
+	local scan_frame = is_secondary_bind and fire_2_frame or throw_frame
 
 	-- rotate aim vector by random 45 degree angle
 	local angle = (Random(0, 40) - 20) * math.pi / 180
@@ -153,7 +161,7 @@ if(players[1])then
 		end
 	end
 
-	local raycast = function(x, y, far_x, far_y, no_convert)
+	local raycast = function(x, y, far_x, far_y, no_convert, no_entity_check)
 		local was_entity = false
 
 		local dx = far_x - x
@@ -170,47 +178,49 @@ if(players[1])then
 		local entity_y = nil
 		local entity_radius = nil
 
-		for i = 0, steps, 1 do
-			local step_x = math.floor(x + step_x * i) + 0.5
-			local step_y = math.floor(y + step_y * i) + 0.5
+		if(not no_entity_check)then
+			for i = 0, steps, 1 do
+				local step_x = math.floor(x + step_x * i) + 0.5
+				local step_y = math.floor(y + step_y * i) + 0.5
 
-			for _, entity in ipairs(entity_list)do
-				
-				
-
-				local dx = step_x - entity.x
-				local dy = step_y - entity.y
-	
-				local distance = math.sqrt(dx * dx + dy * dy)
-
-				if(distance < entity.radius)then
-					--print("hit_entity")
-					-- check if point is within aabb 
-					local aabb_min_x = entity.aabb_min_x + entity.x
-					local aabb_max_x = entity.aabb_max_x + entity.x
-					local aabb_min_y = entity.aabb_min_y + entity.y
-					local aabb_max_y = entity.aabb_max_y + entity.y
-
-					if(step_x >= aabb_min_x and step_x <= aabb_max_x and step_y >= aabb_min_y and step_y <= aabb_max_y)then
-						was_entity = true
-						entity_x = entity.x
-						entity_y = entity.y
-						entity_radius = entity.radius
-						local physics_comp = EntityGetFirstComponentIncludingDisabled(entity.id, "PhysicsBodyComponent")
-						local physics2_comp = EntityGetFirstComponentIncludingDisabled(entity.id, "PhysicsBody2Component")
-	
-						if(physics_comp or physics2_comp)then
-							no_convert = true
-						end
-
-						if(not no_convert)then
-							EntityConvertToMaterial( entity.id, "mortal_lidar" )
-						end
-						goto end_loop
-					end
-
+				for _, entity in ipairs(entity_list)do
+					
 					
 
+					local dx = step_x - entity.x
+					local dy = step_y - entity.y
+		
+					local distance = math.sqrt(dx * dx + dy * dy)
+
+					if(distance < entity.radius)then
+						--print("hit_entity")
+						-- check if point is within aabb 
+						local aabb_min_x = entity.aabb_min_x + entity.x
+						local aabb_max_x = entity.aabb_max_x + entity.x
+						local aabb_min_y = entity.aabb_min_y + entity.y
+						local aabb_max_y = entity.aabb_max_y + entity.y
+
+						if(step_x > aabb_min_x and step_x < aabb_max_x and step_y > aabb_min_y and step_y < aabb_max_y)then
+							was_entity = true
+							entity_x = entity.x
+							entity_y = entity.y
+							entity_radius = entity.radius
+							local physics_comp = EntityGetFirstComponentIncludingDisabled(entity.id, "PhysicsBodyComponent")
+							local physics2_comp = EntityGetFirstComponentIncludingDisabled(entity.id, "PhysicsBody2Component")
+		
+							if(physics_comp or physics2_comp)then
+								no_convert = true
+							end
+
+							if(not no_convert)then
+								EntityConvertToMaterial( entity.id, "mortal_lidar" )
+							end
+							goto end_loop
+						end
+
+						
+
+					end
 				end
 			end
 		end
@@ -232,7 +242,34 @@ if(players[1])then
 			EntitySetTransform(material_converter_entity, entity_x, entity_y)
 			--ConvertMaterialOnAreaInstantly( entity_x - entity_radius, entity_y - entity_radius, entity_radius * 2, entity_radius * 2, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
 		end
-		return hit, hit_x, hit_y, was_entity
+		return hit, hit_x, hit_y + 0.5, was_entity
+	end
+
+	local function entity_intersects(point_list)
+		for _, entity in ipairs(entity_list)do
+			for i, point in ipairs(point_list)do
+				local x = point[1]
+				local y = point[2]
+
+				local dx = x - entity.x
+				local dy = y - entity.y
+
+				local distance = math.sqrt(dx * dx + dy * dy)
+
+				if(distance < entity.radius)then
+					local aabb_min_x = entity.aabb_min_x + entity.x
+					local aabb_max_x = entity.aabb_max_x + entity.x
+					local aabb_min_y = entity.aabb_min_y + entity.y
+					local aabb_max_y = entity.aabb_max_y + entity.y
+
+					if(x >= aabb_min_x and x <= aabb_max_x and y >= aabb_min_y and y <= aabb_max_y)then
+						return true
+					end
+				end
+			
+			end
+		end
+		return false
 	end
 
 	local function cast_ray(x, y, dir_x, dir_y, distance, iterations, current_iterations)
@@ -297,13 +334,13 @@ if(players[1])then
 	local px = math.floor(px)
 	local py = math.floor(py)
 	local world_state = GameGetWorldStateEntity()
-	if(fire_2_down)then
+	if(scan_down)then
 		was_scanning = true
 		if(fire_2_frame == GameGetFrameNum() and not not_first_scan)then
 			GamePlaySound("mods/evaisa.lidar/lidar.bank", "lidar/scan_start", 0, 0)
 			print("scan start")
 			not_first_scan = true
-		elseif(GameGetFrameNum() - fire_2_frame > 20)then
+		elseif(GameGetFrameNum() - scan_frame > 20)then
 			if(world_state ~= nil)then
 				local audio_loop_component = EntityGetFirstComponentIncludingDisabled(world_state, "AudioLoopComponent", "lidar_audio_loop")
 				if(audio_loop_component == nil)then
@@ -346,39 +383,34 @@ if(players[1])then
 	end
 
 
-	if(GameGetFrameNum() % 30 == 0)then
-		for x = px - render_distance, px + render_distance do
-			for y = py - render_distance, py + render_distance do
+	for x = px - render_distance, px + render_distance do
+		for y = py - render_distance, py + render_distance do
 
-				local value = LIDAR_POINTS:get(x, y)
+			local value = LIDAR_POINTS:get(x, y)
 
-				
-				if(value ~= nil)then
-					--ConvertMaterialOnAreaInstantly( x, y, 128, 128, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
+			
+			if(value ~= nil)then
+				if(GameGetFrameNum() % 30 == 0)then
+					if(value ~= 1)then
 
-					local check_hit, check_x, check_y = raycast( x, y, x + 0.4, y + 0.4, true )
-	
-					if(check_hit)then
-
-						--[[local sx, sy = (x - cx) / scale_x + screen_width / 2 + 1.5, (y - cy) / scale_y + screen_height / 2 - 5
-						GuiColorSetForNextWidget(gui, 1, 0, 0, 0.7)
-						GuiText(gui, sx, sy, ".")]]
-						draw_point(x, y, value == 1)
+						
+						local check_hit, check_x, check_y = RaytraceSurfaces(x - 1, y - 1, x + 1, y + 1)
+						local check_hit_2, check_x_2, check_y_2 = RaytraceSurfaces(x - 1, y + 1, x + 1, y - 1)
+		
+						if(check_hit or check_hit_2)then
+							draw_point(x, y, value == 1)
+						else
+							LIDAR_POINTS:delete(x, y)
+						end
 					else
-						LIDAR_POINTS:delete(x, y)
+						if(entity_intersects({{x, y}, {x - 1, y}, {x + 1, y}, {x, y + 1}, {x, y - 1}}))then
+							draw_point(x, y, value == 1)
+						else
+							LIDAR_POINTS:delete(x, y)
+						end
 					end
-				end
-				
-			end
-		end
-	else
-		for x = px - render_distance, px + render_distance do
-			for y = py - render_distance, py + render_distance do
-				local value = LIDAR_POINTS:get(x, y)
+				else
 
-				--ConvertMaterialOnAreaInstantly( x, y, 1000, 1000, CellFactory_GetType("mortal_lidar"), CellFactory_GetType("air"), false, false )
-
-				if(value ~= nil)then
 					local was_new = false
 					for k, v in ipairs(new_points)do
 						if(v.x == x and v.y == y)then
@@ -389,36 +421,26 @@ if(players[1])then
 
 					
 
-					if(was_new and not value == 1)then
-						local check_hit, check_x, check_y = raycast( x, y, x + 0.4, y + 0.4, true )
-	
-						if(check_hit)then
-							--[[
-							local sx, sy = (x - cx) / scale_x + screen_width / 2 + 1.5, (y - cy) / scale_y + screen_height / 2 - 5
-							GuiColorSetForNextWidget(gui, 1, 0, 0, 0.7)
-							GuiText(gui, sx, sy, ".")]]
+					if(was_new and value ~= 1)then
+						local check_hit, check_x, check_y = RaytraceSurfaces(x - 1, y - 1, x + 1, y + 1)
+						local check_hit_2, check_x_2, check_y_2 = RaytraceSurfaces(x - 1, y + 1, x + 1, y - 1)
+		
+						if(check_hit or check_hit_2)then
 							draw_point(x, y, value == 1)
 							
 						else
 							LIDAR_POINTS:delete(x, y)
 						end
 					else
-						--[[
-						local sx, sy = (x - cx) / scale_x + screen_width / 2 + 1.5, (y - cy) / scale_y + screen_height / 2 - 5
-						GuiColorSetForNextWidget(gui, 1, 0, 0, 0.7)
-						GuiText(gui, sx, sy, ".")]]
 	
 						draw_point(x, y, value == 1)
 					end
 
 				end
-				
 			end
+			
 		end
 	end
 
-	--profile_draw:stop()
-	--profile_test:print_sum()
-	--profile_draw:print()
 
 end

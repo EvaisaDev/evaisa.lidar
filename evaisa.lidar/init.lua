@@ -7,7 +7,6 @@ ModMaterialsFileAdd( "mods/evaisa.lidar/files/materials.xml" )
 
 function OnMagicNumbersAndWorldSeedInitialized()
 
-	
 	local biomes_content = ModTextFileGetContent("data/biome/_biomes_all.xml")
 
 	local biomes_parsed = nxml.parse(biomes_content)
@@ -28,14 +27,12 @@ function OnMagicNumbersAndWorldSeedInitialized()
 			end
 		end
 	end
-	
-	
 
 end
 
 function OnPlayerSpawned( player_entity ) 
-	local x, y = EntityGetTransform( player_entity )
-	EntityLoad( "mods/evaisa.lidar/files/hitbox_test.xml", x, y )
+	--local x, y = EntityGetTransform( player_entity )
+	--EntityLoad( "mods/evaisa.lidar/files/hitbox_test.xml", x, y )
 end
 
 function OnWorldPreUpdate() 
